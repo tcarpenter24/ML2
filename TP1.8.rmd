@@ -1,0 +1,105 @@
+---
+title: "Chapter 7: Question 8"
+author: "Haider Ali, Walker Campbell, Trenton Carpenter, Ian Dors,"
+date: "2/7/2021"
+output: html_document
+---
+
+Fit some of the non-linear models investigated in this chapter to the Auto data set. Is there evidence for non-linear relationships in this data set? Create some informative plots to justify your answer.
+    
+```{r}
+rm(list = ls())
+
+library(ISLR)
+set.seed(1337)
+attach(Auto)
+head(Auto)
+```
+First, clear the environment.
+
+Import 'ISLR' library, set seed for repeatable results, attach the data set, and view the first six rows.
+
+Displacement is the size of the engine in volume. 
+
+This data set was taken from the StatLib library which is maintained at Carnegie 
+Mellon University. 
+The data set was used in the 1983 American Statistical Association Exposition.
+
+```{r}
+pairs(Auto)
+```
+
+Here, we are comparing each feature against another in the data set. 
+We are looking for non-linear relationships.
+It appears that mpg v displacement is non-linear.
+
+Next, we will create a model to test different exponents of displacement. 
+```{r}
+fit <- lm(mpg ~ poly(displacement, 5))
+summary(fit)
+```
+As the polynomial increases, the significant difference in each model changes. 
+
+Looking at the summary of this linear model, we can see that displacement^1 is a weaker model compared to displacement^2 and displacement^3.
+
+Next, we will confirm this with an ANOVA test.
+```{r}
+fit1=lm(mpg~displacement)
+fit2=lm(mpg~poly(displacement,2))
+fit3=lm(mpg~poly(displacement,3))
+fit4=lm(mpg~poly(displacement,4))
+fit5=lm(mpg~poly(displacement,5))
+anova(fit1,fit2,fit3,fit4,fit5)
+```
+When comparing the models to each other, model one has a very significant change from model two because of the large F-ratio and significant p-value.
+The difference from two to three is little which can be proven by the small F-ratio and the p-value being significantly greater than .05. Because of this, model two or three are appropriate.
+
+We are going to chose model three with displacement^3.
+
+```{r}
+dispRange = range(displacement)
+dispList = seq(from=dispRange[1], to=dispRange[2])
+dispList
+```
+
+```{r}
+preds = predict(fit3, newdata=list(displacement=dispList), se=TRUE)
+```
+Here we are creating predictions based off of the displacement list created earlier (68->455)
+and using the simplest, most sufficient poly fit linear model (fit3 or displacement^3). 
+
+```{r}
+se.bands = cbind(preds$fit+2*preds$se.fit, preds$fit-2*preds$se.fit)
+```
+We are creating our 95% confidence intervals using our predictions plus the two times upper standard errors and our predictions minus two times our standard errors.
+
+```{r}
+par(mfrow=c(1,1), mar=c(4.5,4.5,1,1), oma=c(0,0,4,0))
+plot(displacement, mpg, xlim=dispRange, cex =.5, col="darkgrey ")
+title("Degree-3 Polynomial",outer=T)
+lines(dispList, preds$fit, lwd=2, col="blue")
+matlines(dispList, se.bands, lwd=1, col="red", lty=3)
+```
+Plot shows predicted MPG against all possible displacements within our data range. The blue line is our predicted amount while the dotted red lines are our 95% confidence intervals. Notice how where there are more data points, the confidence interval is closer to our prediction. 
+
+```{r}
+table(cut(displacement,4))
+fit=lm(mpg~cut(displacement,4))
+coef(summary(fit))
+```
+Creating four equal bins based off of displacement range.
+Bin 1: 67.6  -> 165 
+Bin 2: 165.1 -> 262
+...
+```{r}
+preds = predict(fit, newdata=list(displacement=dispList), se=TRUE)
+se.bands = cbind(preds$fit+2*preds$se.fit, preds$fit-2*preds$se.fit)
+
+par(mfrow=c(1,1), mar=c(4.5,4.5,1,1), oma=c(0,0,4,0))
+plot(displacement, mpg, xlim=dispRange, cex =.5, col="darkgrey ")
+title("Four Cuts",outer=T)
+lines(dispList, preds$fit, lwd=2, col="blue")
+matlines(dispList, se.bands, lwd=1, col="red", lty=3)
+```
+Showing the predictions and 95% CI for the four bins. Notice the distance between 
+the predictions and intervals as data becomes more sparse (larger SE).

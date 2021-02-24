@@ -1,0 +1,191 @@
+---
+title: "Team12_MLII_TP1"
+author: "Haider Ali, Walker Campbell, Trenton Carpenter, Ian Dors,"
+date: "2/6/2021"
+output: html_document
+---
+Team 12
+
+7.8.1 Polynomial Regression and Step Functions
+
+```{r}
+rm(list=ls())
+
+library(ISLR)
+attach(Wage)
+head(Wage)
+```
+First we clear our environment. Next, load 'ISLR', attach our data set 'Wage' and view the top six
+rows.
+
+3,000 males from Mid-Atlantic, 11 variables
+
+year:
+-Year that wage information was recorded
+
+age:
+-Age of worker
+
+maritl:
+-A factor with levels 1. Never Married 2. Married 3. Widowed 4. Divorced and 5. Separated indicating marital status
+
+race:
+-A factor with levels 1. White 2. Black 3. Asian and 4. Other indicating race
+
+education:
+-A factor with levels 1. < HS Grad 2. HS Grad 3. Some College 4. College Grad and 5. Advanced Degree indicating education level
+
+region:
+-Region of the country (mid-atlantic only)
+
+jobclass:
+-A factor with levels 1. Industrial and 2. Information indicating type of job
+
+health:
+-A factor with levels 1. <=Good and 2. >=Very Good indicating health level of worker
+
+health_ins:
+-A factor with levels 1. Yes and 2. No indicating whether worker has health insurance
+
+logwage:
+-Log of workers wage
+
+***wage:
+-Workers raw wage
+
+Data was manually assembled by Steve Miller, of Open BI (www.openbi.com), from the March 2011 Supplement to Current Population Survey data.
+
+```{r}
+fit = lm(wage~poly(age,4), data=Wage)
+coef(summary(fit))
+```
+Use 'lm' function to create a linear model that predicts wage using a fourth-degree polynomial of age. 
+This is orthogonal (each term was produced in a matter to not have any correlation with each other).
+Contains four terms: age, age^2, age^3, age^4.
+
+```{r, echo=FALSE}
+fit2 = lm(wage~poly(age,4,raw=T), data=Wage)
+coef(summary(fit2))
+```
+This is the direct way to obtain each degree. Notice the coefficients are different but the fitted values in the end will not vary.
+Raw means non-orthogonal. 
+```{r}
+fit2a = lm(wage~age+I(age^2)+I(age^3)+I(age^4), data=Wage)
+coef(fit2a)
+```
+I() isolates terms to create the same estimates as using 'raw = True'.
+
+```{r}
+fit2b = lm(wage~cbind(age,age^2,age^3,age ^4), data=Wage)
+coef(fit2b)
+```
+A more compact way compared to using the 'I()'. 'cbind()' functions as a wrapper 
+producing the same results.
+Also, non-orthogonal.
+
+```{r}
+agelims  = range(age)
+age.grid = seq(from=agelims[1], to=agelims[2])
+preds    = predict(fit, newdata=list(age=age.grid), se=TRUE)
+se.bands = cbind(preds$fit+2*preds$se.fit, preds$fit-2*preds$se.fit)
+```
+Get the range of all ages and create a list of every age between the range.
+Create predictions based off of the original orthogonal model (lm(wage~poly(age,4)).
+Then we create our 95% confidence interval using the standard errors of our predictions. 
+
+``` {r}
+par(mfrow=c(1,2), mar=c(4.5,4.5,1,1), oma=c(0,0,4,0))
+plot(age, wage, xlim=agelims, cex =.5, col="darkgrey ")
+title("Degree-4 Polynomial",outer=T)
+lines(age.grid, preds$fit, lwd=2, col="blue")
+matlines(age.grid, se.bands, lwd=1, col=" blue", lty=3)
+```
+Plotting Age vs Wage using the original fit model (orthogonal).
+Solid Blue is predicted Wage, while the dotted upper and lower blue lines are 
+the bounds of the 95% confidence interval.
+
+```{r}
+preds2 = predict(fit2, newdata=list(age=age.grid), se=TRUE)
+max(abs(preds$fit-preds2$fit))
+```
+Using the non-orthogonal model, fit2 lm(wage~poly(age,4,raw=T), data=Wage), we can see the fitted values are nearly identical (almost 0).
+
+```{r}
+fit.1=lm(wage~age ,data=Wage)
+fit.2=lm(wage~poly(age ,2),data=Wage)
+fit.3=lm(wage~poly(age ,3),data=Wage)
+fit.4=lm(wage~poly(age ,4),data=Wage)
+fit.5=lm(wage~poly(age ,5),data=Wage)
+anova(fit.1,fit.2,fit.3,fit.4,fit.5)
+```
+Create increasingly more complex orthogonal models (from age^1 to age^5) to then 
+use the 'ANOVA' (analysis of variance) function to test the null hypothesis 
+sequentially from the simpler model to the more complex model.
+
+As the models get more complex, the significance of the change decreases. The ideal model is either model 3 because at this point, the change to model 4 is insignificant. 
+
+```{r}
+coef(summary(fit.5))
+(-11.983)^2
+```
+A simpler method of obtaining the P-values. 
+Notice that the t-values are the square roots of the ANOVA's F-statistics.
+
+```{r}
+fit.1=lm(wage~education+age, data=Wage)
+fit.2=lm(wage~education+poly(age,2) ,data=Wage)
+fit.3=lm(wage~education+poly(age,3) ,data=Wage)
+anova(fit.1,fit.2,fit.3)
+```
+The ANOVA function works even with when there are other terms in the model (education).
+
+```{r}
+fit = glm(I(wage>250)~poly(age,4),data=Wage, family=binomial)
+```
+To predict if an individual make more than $250,000, we must use the 'glm'
+(generalized linear model) with the family set to 'binomial' because our response
+will be either a yes or no.
+
+```{r}
+preds = predict(fit,newdata=list(age=age.grid),se=T)
+```
+Here we are creating predictions based off of the age list created earlier (18->80)
+and using the new generalized linear model. 
+
+```{r}
+pfit = exp(preds$fit)/(1+exp(preds$fit))
+se.bands.logit = cbind(preds$fit +2* preds$se.fit , preds$fit -2*preds$se.fit)
+se.bands = exp(se.bands.logit)/(1+exp(se.bands.logit))
+```
+Calculate the 95% confidence interval for the generalized linear model using the 
+default 'glm()' prediction type 'link'
+
+```{r}
+preds=predict(fit,newdata=list(age=age.grid),type="response",se=T)
+```
+Also create the 95% confidence interval by changing the prediction type to 'response'.
+
+```{r}
+plot(age ,I(wage >250),xlim=agelims ,type="n",ylim=c(0,.2))
+points(jitter(age), I((wage >250)/5),cex=.5,pch ="|", col="darkgrey")
+lines(age.grid ,pfit ,lwd=2, col ="blue")
+matlines (age.grid ,se.bands ,lwd=1, col="blue",lty=3)
+```
+Here is a plot of the probability that someone of a certain age will make above
+$250,000. The gray spots on the top are observed ages where an individual makes
+above $250,000 while the gray spots on the bottom or those that do not.
+The dotted blue lines are the confidence interval while the solid blue line is the
+predicted probability of making above $250,000 for a give age from 18 to 80.
+
+```{r}
+table(cut(age ,4))
+fit=lm(wage~cut(age ,4),data=Wage)
+coef(summary (fit))
+```
+The cut function equally divides the age into four bins. 
+We use the cut points within the linear model to create categorical variables so
+we predict salary based on age bins.
+
+For example, if you are under 33.5 years old, the predicted salary is $94,158.39.
+If you are between the ages of 33.5 and 49, then the predicted salary is \$94,158 + $24,055.
+and so on.
